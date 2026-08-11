@@ -1,0 +1,96 @@
+---
+title: "Placental long-read scRNA-seq — pilot report"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    theme: cosmo
+params:
+  analysis_dir: "results/r_analysis"   # output dir of R/process_pilot.R
+date: "`r format(Sys.Date())`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, fig.width = 8, fig.height = 5)
+suppressPackageStartupMessages({
+  library(Seurat); library(data.table); library(ggplot2); library(patchwork); library(DT)
+})
+ad <- params$analysis_dir
+seu <- readRDS(file.path(ad, "seurat_object.rds"))
+comp <- fread(file.path(ad, "cell_composition.csv"))
+qc_pre  <- fread(file.path(ad, "qc_summary_prefilter.csv"))
+qc_post <- fread(file.path(ad, "qc_summary_postfilter.csv"))
+iso_path <- file.path(ad, "isoform_table.csv")
+has_iso <- file.exists(iso_path)
+```
+
+## Overview
+
+Placental long-read single-cell RNA-seq pilot (10x GEM-X 3' v4 → PromethION),
+quantified against the **HPLRv2.1** placental transcriptome reference. Cell
+composition is assessed with **SingleR** against the integrated placenta atlas.
+
+## QC
+
+```{r qc-table}
+knitr::kable(rbind(cbind(stage = "pre-filter", qc_pre),
+                   cbind(stage = "post-filter", qc_post)),
+             caption = "Cell / gene / UMI / mitochondrial QC summary")
+```
+
+```{r qc-violins, fig.height=4}
+VlnPlot(seu, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), ncol = 3, pt.size = 0)
+```
+
+```{r qc-scatter}
+FeatureScatter(seu, feature1 = "nCount_RNA", feature2 = "percent.mt") +
+  FeatureScatter(seu, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+```
+
+## Cell composition
+
+```{r umap}
+DimPlot(seu, group.by = "singleR_label", label = TRUE, repel = TRUE) + NoLegend()
+```
+
+```{r composition}
+ggplot(comp, aes(x = reorder(singleR_label, fraction), y = fraction, fill = singleR_label)) +
+  geom_col(show.legend = FALSE) + coord_flip() +
+  labs(x = NULL, y = "Fraction of cells", title = "Cell-type composition (SingleR)") +
+  theme_minimal()
+datatable(comp, options = list(pageLength = 15))
+```
+
+## Isoform exploration (long-read)
+
+```{r isoform, eval=has_iso}
+iso <- fread(iso_path)
+cat("Transcripts quantified:", nrow(iso),
+    "\nPlacental (HPLRT_) isoforms:", sum(iso$is_novel_HPLRT, na.rm = TRUE), "\n")
+top <- head(iso[order(-total_counts)], 25)
+ggplot(top, aes(x = reorder(gene_name, total_counts), y = total_counts,
+                fill = is_novel_HPLRT)) +
+  geom_col() + coord_flip() +
+  labs(x = NULL, y = "Total counts", title = "Top transcripts", fill = "HPLRT isoform") +
+  theme_minimal()
+```
+
+```{r isoform-flags, eval=has_iso}
+if (all(c("EAS_term", "EUR_preterm", "EUR_term") %in% names(iso))) {
+  flag_counts <- data.table(
+    population = c("EAS_term", "EUR_preterm", "EUR_term"),
+    transcripts = c(sum(iso$EAS_term == "TRUE", na.rm = TRUE),
+                    sum(iso$EUR_preterm == "TRUE", na.rm = TRUE),
+                    sum(iso$EUR_term == "TRUE", na.rm = TRUE)))
+  ggplot(flag_counts, aes(population, transcripts, fill = population)) +
+    geom_col(show.legend = FALSE) +
+    labs(title = "Detected transcripts by population flag", y = "Transcripts", x = NULL) +
+    theme_minimal()
+}
+```
+
+## Session info
+
+```{r sessioninfo}
+sessionInfo()
+```

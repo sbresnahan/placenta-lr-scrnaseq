@@ -1,0 +1,41 @@
+# conda environment for the R analysis arm + report rendering.
+# IMPORTANT: conda-forge + bioconda ONLY (nodefaults) — BCM institutional licensing
+# forbids Anaconda 'defaults' channel packages. R packages come from conda-forge
+# (r-*), Bioconductor (bioconductor-*), and Posit Package Manager via install2.r
+# for anything missing. Do NOT add the 'defaults' channel.
+name: placenta-lr-report
+channels:
+  - conda-forge
+  - bioconda
+  - nodefaults
+dependencies:
+  - r-base=4.3.*
+  # --- core single-cell / stats (conda-forge) ---
+  - r-seurat
+  - r-seuratobject
+  - r-matrix
+  - r-data.table
+  - r-dplyr
+  - r-tidyr
+  - r-ggplot2
+  - r-ggrepel
+  - r-patchwork
+  - r-scales
+  - r-optparse
+  # --- reporting ---
+  - r-rmarkdown
+  - r-knitr
+  - r-dt
+  - r-htmltools
+  - pandoc
+  # --- Bioconductor (SingleR + SCE + h5ad ingest) ---
+  - bioconductor-singler
+  - bioconductor-singlecellexperiment
+  - bioconductor-summarizedexperiment
+  - bioconductor-scran
+  - bioconductor-scater
+  - bioconductor-zellkonverter   # h5ad -> SingleCellExperiment
+  - bioconductor-basilisk        # python env for zellkonverter/reticulate
+  # --- helpers ---
+  - r-hdf5r
+  - r-remotes
